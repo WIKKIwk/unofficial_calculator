@@ -43,74 +43,85 @@ class NotificationsPage extends StatelessWidget {
           );
         }
 
-        final items = controller.notifications;
-        if (items.isEmpty) {
-          return Center(
-            child: Text(
-              'Hali bildirishnoma yo‘q',
-              style: textTheme.bodyLarge?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          );
-        }
-
-        return ListTileTheme(
-          data: ListTileThemeData(
-            tileColor: Colors.transparent,
-            dense: true,
-            visualDensity: VisualDensity.compact,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 4,
-            ),
-            minLeadingWidth: 40,
-            titleTextStyle: textTheme.titleMedium,
-            subtitleTextStyle: textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          child: ListView.separated(
-            padding: const EdgeInsets.only(bottom: 88),
-            itemCount: items.length,
-            separatorBuilder: (context, index) =>
-                Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
-            itemBuilder: (context, index) {
-              final CapturedNotification n = items[index];
-              return ListTile(
-                leading: _Leading(iconBytes: n.appIcon, package: n.packageName),
-                title: Text(
-                  n.title?.trim().isNotEmpty == true
-                      ? n.title!.trim()
-                      : n.packageName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (n.content != null && n.content!.trim().isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          n.content!.trim(),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${n.packageName} · ${_formatTime(n.receivedAt)}',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+        return ListenableBuilder(
+          listenable: controller.notificationFeed,
+          builder: (context, _) {
+            final items = controller.notifications;
+            if (items.isEmpty) {
+              return Center(
+                child: Text(
+                  'Hali bildirishnoma yo‘q',
+                  style: textTheme.bodyLarge?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
               );
-            },
-          ),
+            }
+
+            return ListTileTheme(
+              data: ListTileThemeData(
+                tileColor: Colors.transparent,
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                minLeadingWidth: 40,
+                titleTextStyle: textTheme.titleMedium,
+                subtitleTextStyle: textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              child: ListView.separated(
+                padding: const EdgeInsets.only(bottom: 88),
+                itemCount: items.length,
+                separatorBuilder: (context, index) => Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: scheme.outlineVariant,
+                ),
+                itemBuilder: (context, index) {
+                  final CapturedNotification n = items[index];
+                  return ListTile(
+                    leading: _Leading(
+                      iconBytes: n.appIcon,
+                      package: n.packageName,
+                    ),
+                    title: Text(
+                      n.title?.trim().isNotEmpty == true
+                          ? n.title!.trim()
+                          : n.packageName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (n.content != null && n.content!.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              n.content!.trim(),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${n.packageName} · ${_formatTime(n.receivedAt)}',
+                          style: textTheme.labelSmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         );
       },
     );

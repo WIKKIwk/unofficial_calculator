@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:installed_apps/installed_apps.dart';
@@ -21,16 +23,28 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _loading = true;
   final TextEditingController _searchController = TextEditingController();
   bool _financeOnly = false;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() => setState(() {}));
+    _searchController.addListener(_onSearchTextChanged);
     _load();
+  }
+
+  void _onSearchTextChanged() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.removeListener(_onSearchTextChanged);
     _searchController.dispose();
     super.dispose();
   }

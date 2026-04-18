@@ -6,6 +6,7 @@ import 'package:notification_listener_service/notification_listener_service.dart
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models/captured_notification.dart';
+import 'notification_feed_notifier.dart';
 
 const _prefsAllowedPackages = 'allowed_packages';
 
@@ -14,14 +15,19 @@ class AppController extends ChangeNotifier {
 
   bool _listenerGranted = false;
   final Set<String> _allowedPackages = {};
-  final List<CapturedNotification> _items = <CapturedNotification>[];
   StreamSubscription<ServiceNotificationEvent>? _subscription;
+
+  /// Drives only the permission gate in [MaterialApp] home (not every toast).
+  final ValueNotifier<bool> listenerGrantedNotifier = ValueNotifier(false);
+
+  /// Drives only the notifications list UI.
+  final NotificationFeedNotifier notificationFeed = NotificationFeedNotifier();
 
   bool get listenerGranted => _listenerGranted;
 
   Set<String> get allowedPackages => Set.unmodifiable(_allowedPackages);
 
-  List<CapturedNotification> get notifications => List.unmodifiable(_items);
+  List<CapturedNotification> get notifications => notificationFeed.items;
 
   bool isPackageAllowed(String packageName) =>
       _allowedPackages.contains(packageName);
@@ -29,13 +35,14 @@ class AppController extends ChangeNotifier {
   Future<void> init() async {
     await _loadPrefs();
     await refreshPermission();
+    listenerGrantedNotifier.value = _listenerGranted;
   }
 
   Future<void> refreshPermission() async {
-    final granted =
-        await NotificationListenerService.isPermissionGranted();
+    final granted = await NotificationListenerService.isPermissionGranted();
     if (granted != _listenerGranted) {
       _listenerGranted = granted;
+      listenerGrantedNotifier.value = granted;
       if (granted) {
         await _ensureSubscribed();
       } else {
@@ -50,8 +57,9 @@ class AppController extends ChangeNotifier {
 
   Future<void> _ensureSubscribed() async {
     if (_subscription != null) return;
-    _subscription =
-        NotificationListenerService.notificationsStream.listen(_onEvent);
+    _subscription = NotificationListenerService.notificationsStream.listen(
+      _onEvent,
+    );
   }
 
   void _onEvent(ServiceNotificationEvent event) {
@@ -60,11 +68,7 @@ class AppController extends ChangeNotifier {
     if (package == null || package.isEmpty) return;
     if (!_allowedPackages.contains(package)) return;
 
-    _items.insert(
-      0,
-      CapturedNotification.fromEvent(event, DateTime.now()),
-    );
-    notifyListeners();
+    notificationFeed.addFromEvent(event, DateTime.now());
   }
 
   Future<void> _loadPrefs() async {
@@ -108,6 +112,8 @@ class AppController extends ChangeNotifier {
     if (sub != null) {
       unawaited(sub.cancel());
     }
+    listenerGrantedNotifier.dispose();
+    notificationFeed.dispose();
     super.dispose();
   }
 }

@@ -61,10 +61,10 @@ class _NotifRootState extends State<NotifRoot> with WidgetsBindingObserver {
         ),
       ),
       themeMode: ThemeMode.system,
-      home: ListenableBuilder(
-        listenable: _controller,
-        builder: (context, _) {
-          if (!_controller.listenerGranted) {
+      home: ValueListenableBuilder<bool>(
+        valueListenable: _controller.listenerGrantedNotifier,
+        builder: (context, granted, _) {
+          if (!granted) {
             return PermissionPromptPage(controller: _controller);
           }
           return AppShell(controller: _controller);

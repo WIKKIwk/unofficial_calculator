@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
+import '../widgets/notif_hub_app_bar.dart';
 
 class PermissionPromptPage extends StatelessWidget {
   const PermissionPromptPage({super.key, required this.controller});
@@ -13,13 +14,14 @@ class PermissionPromptPage extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
+      appBar: const NotifHubAppBar(sectionTitle: 'Ruxsat kerak'),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
               Icon(
                 Icons.notifications_active_rounded,
                 size: 72,

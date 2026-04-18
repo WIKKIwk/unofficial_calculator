@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
+import '../widgets/notif_hub_app_bar.dart';
 import 'notifications_page.dart';
 import 'settings_page.dart';
 
@@ -19,6 +20,9 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: NotifHubAppBar(
+        sectionTitle: _index == 0 ? 'Bildirishnomalar' : 'Sozlamalar',
+      ),
       body: IndexedStack(
         index: _index,
         children: [

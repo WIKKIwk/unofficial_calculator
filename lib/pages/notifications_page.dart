@@ -56,47 +56,42 @@ class NotificationsPage extends StatelessWidget {
         }
 
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+          padding: const EdgeInsets.only(bottom: 88),
           itemCount: items.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 4),
+          separatorBuilder: (context, index) =>
+              Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
           itemBuilder: (context, index) {
             final CapturedNotification n = items[index];
-            return Card(
-              elevation: 0,
-              color: scheme.surfaceContainerLow,
-              child: ListTile(
-                leading: _Leading(
-                  iconBytes: n.appIcon,
-                  package: n.packageName,
-                ),
-                title: Text(
-                  n.title?.trim().isNotEmpty == true
-                      ? n.title!.trim()
-                      : n.packageName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (n.content != null && n.content!.trim().isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          n.content!.trim(),
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${n.packageName} · ${_formatTime(n.receivedAt)}',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              leading: _Leading(iconBytes: n.appIcon, package: n.packageName),
+              title: Text(
+                n.title?.trim().isNotEmpty == true
+                    ? n.title!.trim()
+                    : n.packageName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (n.content != null && n.content!.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        n.content!.trim(),
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ],
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${n.packageName} · ${_formatTime(n.receivedAt)}',
+                    style: textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             );
           },

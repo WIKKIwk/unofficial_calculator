@@ -55,46 +55,62 @@ class NotificationsPage extends StatelessWidget {
           );
         }
 
-        return ListView.separated(
-          padding: const EdgeInsets.only(bottom: 88),
-          itemCount: items.length,
-          separatorBuilder: (context, index) =>
-              Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
-          itemBuilder: (context, index) {
-            final CapturedNotification n = items[index];
-            return ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              leading: _Leading(iconBytes: n.appIcon, package: n.packageName),
-              title: Text(
-                n.title?.trim().isNotEmpty == true
-                    ? n.title!.trim()
-                    : n.packageName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (n.content != null && n.content!.trim().isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        n.content!.trim(),
-                        maxLines: 4,
-                        overflow: TextOverflow.ellipsis,
+        return ListTileTheme(
+          data: ListTileThemeData(
+            tileColor: Colors.transparent,
+            dense: true,
+            visualDensity: VisualDensity.compact,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
+            minLeadingWidth: 40,
+            titleTextStyle: textTheme.titleMedium,
+            subtitleTextStyle: textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          child: ListView.separated(
+            padding: const EdgeInsets.only(bottom: 88),
+            itemCount: items.length,
+            separatorBuilder: (context, index) =>
+                Divider(height: 1, thickness: 1, color: scheme.outlineVariant),
+            itemBuilder: (context, index) {
+              final CapturedNotification n = items[index];
+              return ListTile(
+                leading: _Leading(iconBytes: n.appIcon, package: n.packageName),
+                title: Text(
+                  n.title?.trim().isNotEmpty == true
+                      ? n.title!.trim()
+                      : n.packageName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (n.content != null && n.content!.trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          n.content!.trim(),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${n.packageName} · ${_formatTime(n.receivedAt)}',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${n.packageName} · ${_formatTime(n.receivedAt)}',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -107,43 +123,49 @@ class _Leading extends StatelessWidget {
   final Uint8List? iconBytes;
   final String package;
 
+  static const double _size = 40;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final bytes = iconBytes;
     if (bytes != null && bytes.isNotEmpty) {
-      return CircleAvatar(
-        backgroundColor: scheme.secondaryContainer,
-        child: ClipOval(
+      return SizedBox(
+        width: _size,
+        height: _size,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
           child: Image.memory(
             bytes,
-            width: 40,
-            height: 40,
+            width: _size,
+            height: _size,
             fit: BoxFit.cover,
             gaplessPlayback: true,
             errorBuilder: (context, error, stackTrace) =>
-                _Initial(scheme: scheme, package: package),
+                _PlaceholderIcon(scheme: scheme),
           ),
         ),
       );
     }
-    return _Initial(scheme: scheme, package: package);
+    return _PlaceholderIcon(scheme: scheme);
   }
 }
 
-class _Initial extends StatelessWidget {
-  const _Initial({required this.scheme, required this.package});
+class _PlaceholderIcon extends StatelessWidget {
+  const _PlaceholderIcon({required this.scheme});
 
   final ColorScheme scheme;
-  final String package;
 
   @override
   Widget build(BuildContext context) {
-    final letter = package.isNotEmpty ? package[0].toUpperCase() : '?';
-    return CircleAvatar(
-      backgroundColor: scheme.primaryContainer,
-      foregroundColor: scheme.onPrimaryContainer,
-      child: Text(letter),
+    return SizedBox(
+      width: _Leading._size,
+      height: _Leading._size,
+      child: Icon(
+        Icons.notifications_outlined,
+        size: 24,
+        color: scheme.onSurfaceVariant,
+      ),
     );
   }
 }

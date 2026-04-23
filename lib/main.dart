@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:device_preview/device_preview.dart';
 
 import 'app_controller.dart';
 import 'pages/app_shell.dart';
@@ -6,7 +7,16 @@ import 'pages/permission_prompt_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const NotifRoot());
+  const previewEnabled = bool.fromEnvironment(
+    'DEVICE_PREVIEW',
+    defaultValue: false,
+  );
+  runApp(
+    DevicePreview(
+      enabled: previewEnabled,
+      builder: (context) => const NotifRoot(),
+    ),
+  );
 }
 
 class NotifRoot extends StatefulWidget {
@@ -46,6 +56,9 @@ class _NotifRootState extends State<NotifRoot> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'Notif Hub',
       debugShowCheckedModeBanner: false,
+      useInheritedMediaQuery: true,
+      locale: DevicePreview.locale(context),
+      builder: DevicePreview.appBuilder,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(

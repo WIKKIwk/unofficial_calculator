@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:installed_apps/app_info.dart';
 import 'package:installed_apps/installed_apps.dart';
@@ -21,43 +19,25 @@ class _SettingsPageState extends State<SettingsPage> {
   List<AppInfo>? _apps;
   String? _error;
   bool _loading = true;
-  final TextEditingController _searchController = TextEditingController();
-  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_onSearchTextChanged);
     _load();
-  }
-
-  void _onSearchTextChanged() {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 200), () {
-      if (mounted) {
-        setState(() {});
-      }
-    });
   }
 
   @override
   void dispose() {
-    _searchDebounce?.cancel();
-    _searchController.removeListener(_onSearchTextChanged);
-    _searchController.dispose();
     super.dispose();
   }
 
   List<AppInfo> _visibleApps() {
     if (_apps == null) return const [];
-    final q = _searchController.text.trim().toLowerCase();
     return _apps!.where((a) {
       if (!matchesFinanceHeuristic(a.name, a.packageName)) {
         return false;
       }
-      if (q.isEmpty) return true;
-      return a.name.toLowerCase().contains(q) ||
-          a.packageName.toLowerCase().contains(q);
+      return true;
     }).toList();
   }
 
@@ -183,28 +163,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        TextField(
-                          controller: _searchController,
-                          textInputAction: TextInputAction.search,
-                          decoration: InputDecoration(
-                            hintText: 'Qidiruv (nom yoki paket)',
-                            prefixIcon: const Icon(Icons.search),
-                            suffixIcon: _searchController.text.isEmpty
-                                ? null
-                                : IconButton(
-                                    tooltip: 'Tozalash',
-                                    onPressed: () {
-                                      _searchController.clear();
-                                    },
-                                    icon: const Icon(Icons.clear),
-                                  ),
-                            filled: true,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
                         Text(
                           'Ro‘yxat bank/moliya ilovalari bilan cheklangan. '
                           'Tanlash Play `id=` va kalit so‘zlar asosida ishlaydi.',

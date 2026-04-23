@@ -1,9 +1,6 @@
-.PHONY: run preview run-android pub-get clean build-apk-arm64
+.PHONY: run run-android pub-get clean build-apk-arm64
 
 run:
-	flutter run -d linux
-
-preview:
 	flutter run -d linux --dart-define=DEVICE_PREVIEW=true
 
 run-android:

@@ -4,7 +4,12 @@ import 'package:installed_apps/installed_apps.dart';
 
 import '../app_controller.dart';
 import '../utils/finance_app_heuristic.dart'
-    show curatedUzbekistanFinancePackages, matchesFinanceHeuristic;
+    show
+        curatedSmsPackages,
+        curatedUzbekistanFinancePackages,
+        isCuratedSmsPackage,
+        matchesFinanceHeuristic,
+        matchesTrackedAppHeuristic;
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, required this.controller});
@@ -34,7 +39,7 @@ class _SettingsPageState extends State<SettingsPage> {
   List<AppInfo> _visibleApps() {
     if (_apps == null) return const [];
     return _apps!.where((a) {
-      if (!matchesFinanceHeuristic(a.name, a.packageName)) {
+      if (!matchesTrackedAppHeuristic(a.name, a.packageName)) {
         return false;
       }
       return true;
@@ -164,7 +169,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Ro‘yxat bank/moliya ilovalari bilan cheklangan. '
+                          'Ro‘yxat bank/moliya va SMS ilovalari bilan cheklangan. '
                           'Tanlash Play `id=` va kalit so‘zlar asosida ishlaydi.',
                           style: textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
@@ -186,6 +191,35 @@ class _SettingsPageState extends State<SettingsPage> {
                           children: [
                             for (final e
                                 in curatedUzbekistanFinancePackages.entries)
+                              ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(e.value),
+                                subtitle: Text(
+                                  e.key,
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                          title: Text(
+                            'Tanilgan SMS paketlari',
+                            style: textTheme.titleSmall,
+                          ),
+                          subtitle: Text(
+                            '${curatedSmsPackages.length} ta',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          children: [
+                            for (final e in curatedSmsPackages.entries)
                               ListTile(
                                 dense: true,
                                 contentPadding: EdgeInsets.zero,
@@ -263,6 +297,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         app.name,
                         app.packageName,
                       );
+                      final likelySms = isCuratedSmsPackage(app.packageName);
                       return SwitchListTile(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -290,10 +325,12 @@ class _SettingsPageState extends State<SettingsPage> {
                         secondary: Icon(
                           likelyFinance
                               ? Icons.account_balance_outlined
-                              : Icons.apps_rounded,
+                              : (likelySms
+                                  ? Icons.sms_outlined
+                                  : Icons.apps_rounded),
                           color: likelyFinance
                               ? scheme.tertiary
-                              : scheme.primary,
+                              : (likelySms ? scheme.secondary : scheme.primary),
                         ),
                       );
                     }, childCount: visibleApps.length * 2 - 1),

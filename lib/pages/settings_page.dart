@@ -22,7 +22,6 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _error;
   bool _loading = true;
   final TextEditingController _searchController = TextEditingController();
-  bool _financeOnly = false;
   Timer? _searchDebounce;
 
   @override
@@ -53,7 +52,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_apps == null) return const [];
     final q = _searchController.text.trim().toLowerCase();
     return _apps!.where((a) {
-      if (_financeOnly && !matchesFinanceHeuristic(a.name, a.packageName)) {
+      if (!matchesFinanceHeuristic(a.name, a.packageName)) {
         return false;
       }
       if (q.isEmpty) return true;
@@ -205,34 +204,10 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: SegmentedButton<bool>(
-                            segments: const [
-                              ButtonSegment<bool>(
-                                value: false,
-                                label: Text('Barchasi'),
-                                icon: Icon(Icons.list_alt_outlined),
-                              ),
-                              ButtonSegment<bool>(
-                                value: true,
-                                label: Text('Bank / moliya'),
-                                icon: Icon(Icons.account_balance_outlined),
-                              ),
-                            ],
-                            selected: {_financeOnly},
-                            onSelectionChanged: (Set<bool> next) {
-                              if (next.isEmpty) return;
-                              setState(() => _financeOnly = next.first);
-                            },
-                          ),
-                        ),
                         const SizedBox(height: 4),
                         Text(
-                          'Tizim “bank ilovasi” deb bermaydi; quyidagi ro‘yxat '
-                          'Play `id=` bo‘yicha aniqlandi, qolganlari kalit '
-                          'so‘zlar bilan taxminiy.',
+                          'Ro‘yxat bank/moliya ilovalari bilan cheklangan. '
+                          'Tanlash Play `id=` va kalit so‘zlar asosida ishlaydi.',
                           style: textTheme.bodySmall?.copyWith(
                             color: scheme.onSurfaceVariant,
                           ),

@@ -23,7 +23,7 @@ class MainActivity : FlutterActivity() {
                         result.success(fetchSmsThreads(limit))
                     }
                     "fetchSmsThreadMessages" -> {
-                        val threadId = call.argument<Long>("threadId")
+                        val threadId = call.argument<Number>("threadId")?.toLong()
                         if (threadId == null) {
                             result.error("invalid_args", "threadId is required", null)
                             return@setMethodCallHandler

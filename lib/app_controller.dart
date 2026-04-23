@@ -265,10 +265,16 @@ class AppController extends ChangeNotifier {
     if (!_supportsSmsFeatures || !_smsPermissionGranted) {
       return;
     }
-    final raw = await _smsChannel.invokeMethod<List<dynamic>>(
-      'fetchSmsThreadMessages',
-      <String, dynamic>{'threadId': threadId, 'limit': limit},
-    );
+    List<dynamic>? raw;
+    try {
+      raw = await _smsChannel.invokeMethod<List<dynamic>>(
+        'fetchSmsThreadMessages',
+        <String, dynamic>{'threadId': threadId, 'limit': limit},
+      );
+    } on PlatformException {
+      smsInbox.replaceAll(const <SmsMessageEntry>[]);
+      return;
+    }
     if (raw == null) {
       smsInbox.replaceAll(const <SmsMessageEntry>[]);
       return;

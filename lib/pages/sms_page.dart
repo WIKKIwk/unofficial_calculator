@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
-import '../models/sms_message_entry.dart';
+import '../models/sms_thread_entry.dart';
+import 'sms_thread_page.dart';
 
 class SmsPage extends StatelessWidget {
   const SmsPage({super.key, required this.controller});
@@ -47,21 +48,30 @@ class SmsPage extends StatelessWidget {
         }
 
         return ListenableBuilder(
-          listenable: controller.smsInbox,
+          listenable: controller.smsThreads,
           builder: (context, _) {
-            final items = controller.smsMessages;
+            final items = controller.smsThreadItems;
             if (items.isEmpty) {
-              return Center(
-                child: Text(
-                  'SMS topilmadi',
-                  style: textTheme.bodyLarge?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+              return RefreshIndicator(
+                onRefresh: controller.loadSmsThreads,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    const SizedBox(height: 180),
+                    Center(
+                      child: Text(
+                        'SMS topilmadi',
+                        style: textTheme.bodyLarge?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               );
             }
             return RefreshIndicator(
-              onRefresh: controller.loadSmsInbox,
+              onRefresh: controller.loadSmsThreads,
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(bottom: 88),
@@ -72,7 +82,7 @@ class SmsPage extends StatelessWidget {
                   color: scheme.outlineVariant,
                 ),
                 itemBuilder: (context, index) {
-                  final SmsMessageEntry m = items[index];
+                  final SmsThreadEntry m = items[index];
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -85,12 +95,20 @@ class SmsPage extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      m.body.trim().isEmpty
+                      m.snippet.trim().isEmpty
                           ? 'Bo‘sh xabar'
-                          : '${m.body}\n${_formatTime(m.receivedAt)}',
+                          : '${m.snippet}\n${_formatTime(m.receivedAt)} · ${m.messageCount} ta',
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              SmsThreadPage(controller: controller, thread: m),
+                        ),
+                      );
+                    },
                   );
                 },
               ),

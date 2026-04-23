@@ -10,8 +10,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models/captured_notification.dart';
 import 'models/sms_message_entry.dart';
+import 'models/sms_thread_entry.dart';
 import 'notification_feed_notifier.dart';
 import 'sms_inbox_notifier.dart';
+import 'sms_threads_notifier.dart';
 
 const _prefsAllowedPackages = 'allowed_packages';
 const _prefsCapturedNotifications = 'captured_notifications_v1';
@@ -35,6 +37,7 @@ class AppController extends ChangeNotifier {
   final NotificationFeedNotifier notificationFeed = NotificationFeedNotifier();
   final ValueNotifier<bool> smsPermissionGrantedNotifier = ValueNotifier(false);
   final SmsInboxNotifier smsInbox = SmsInboxNotifier();
+  final SmsThreadsNotifier smsThreads = SmsThreadsNotifier();
 
   bool get listenerGranted => _listenerGranted;
   bool get smsPermissionGranted => _smsPermissionGranted;
@@ -43,6 +46,7 @@ class AppController extends ChangeNotifier {
 
   List<CapturedNotification> get notifications => notificationFeed.items;
   List<SmsMessageEntry> get smsMessages => smsInbox.items;
+  List<SmsThreadEntry> get smsThreadItems => smsThreads.items;
 
   bool isPackageAllowed(String packageName) =>
       _allowedPackages.contains(_normPackage(packageName));
@@ -53,7 +57,7 @@ class AppController extends ChangeNotifier {
     await refreshPermission();
     await refreshSmsPermission();
     if (_smsPermissionGranted) {
-      await loadSmsInbox();
+      await loadSmsThreads();
     }
     listenerGrantedNotifier.value = _listenerGranted;
   }
@@ -211,17 +215,59 @@ class AppController extends ChangeNotifier {
     await Permission.sms.request();
     await refreshSmsPermission();
     if (_smsPermissionGranted) {
-      await loadSmsInbox();
+      await loadSmsThreads();
     }
   }
 
-  Future<void> loadSmsInbox({int limit = 200}) async {
+  Future<void> loadSmsInbox({int limit = 500}) async {
     if (!_supportsSmsFeatures || !_smsPermissionGranted) {
       return;
     }
     final raw = await _smsChannel.invokeMethod<List<dynamic>>(
       'fetchSmsInbox',
       <String, dynamic>{'limit': limit},
+    );
+    if (raw == null) {
+      smsInbox.replaceAll(const <SmsMessageEntry>[]);
+      return;
+    }
+    final parsed = <SmsMessageEntry>[];
+    for (final item in raw) {
+      if (item is Map) {
+        parsed.add(SmsMessageEntry.fromMap(item.cast<String, dynamic>()));
+      }
+    }
+    smsInbox.replaceAll(parsed);
+  }
+
+  Future<void> loadSmsThreads({int limit = 120}) async {
+    if (!_supportsSmsFeatures || !_smsPermissionGranted) {
+      return;
+    }
+    final raw = await _smsChannel.invokeMethod<List<dynamic>>(
+      'fetchSmsThreads',
+      <String, dynamic>{'limit': limit},
+    );
+    if (raw == null) {
+      smsThreads.replaceAll(const <SmsThreadEntry>[]);
+      return;
+    }
+    final parsed = <SmsThreadEntry>[];
+    for (final item in raw) {
+      if (item is Map) {
+        parsed.add(SmsThreadEntry.fromMap(item.cast<String, dynamic>()));
+      }
+    }
+    smsThreads.replaceAll(parsed);
+  }
+
+  Future<void> loadSmsThreadMessages(int threadId, {int limit = 500}) async {
+    if (!_supportsSmsFeatures || !_smsPermissionGranted) {
+      return;
+    }
+    final raw = await _smsChannel.invokeMethod<List<dynamic>>(
+      'fetchSmsThreadMessages',
+      <String, dynamic>{'threadId': threadId, 'limit': limit},
     );
     if (raw == null) {
       smsInbox.replaceAll(const <SmsMessageEntry>[]);
@@ -249,6 +295,7 @@ class AppController extends ChangeNotifier {
     smsPermissionGrantedNotifier.dispose();
     notificationFeed.dispose();
     smsInbox.dispose();
+    smsThreads.dispose();
     super.dispose();
   }
 }

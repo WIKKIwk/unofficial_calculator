@@ -1,7 +1,10 @@
-.PHONY: run pub-get clean build-apk-arm64
+.PHONY: run run-android pub-get clean build-apk-arm64
 
-run:
-	flutter run
+run: run-android
+
+run-android:
+	@flutter devices | rg -qi "android" || (echo "No Android device/emulator detected. Connect a phone (USB debugging) or start an emulator."; exit 1)
+	flutter run -d android
 
 pub-get:
 	flutter pub get

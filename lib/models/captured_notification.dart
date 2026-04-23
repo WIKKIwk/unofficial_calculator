@@ -29,4 +29,25 @@ class CapturedNotification {
       appIcon: e.appIcon,
     );
   }
+
+  factory CapturedNotification.fromMap(Map<String, dynamic> map) {
+    return CapturedNotification(
+      receivedAt: DateTime.tryParse(map['receivedAt'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      packageName: map['packageName'] as String? ?? '',
+      title: map['title'] as String?,
+      content: map['content'] as String?,
+      // Icon bytes are intentionally not persisted to keep storage small.
+      appIcon: null,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'receivedAt': receivedAt.toIso8601String(),
+      'packageName': packageName,
+      'title': title,
+      'content': content,
+    };
+  }
 }

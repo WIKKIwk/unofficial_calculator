@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:notification_listener_service/notification_event.dart';
@@ -9,6 +10,9 @@ import 'models/captured_notification.dart';
 import 'notification_feed_notifier.dart';
 
 const _prefsAllowedPackages = 'allowed_packages';
+const _prefsCapturedNotifications = 'captured_notifications_v1';
+
+String _normPackage(String packageName) => packageName.trim().toLowerCase();
 
 class AppController extends ChangeNotifier {
   AppController();
@@ -16,6 +20,7 @@ class AppController extends ChangeNotifier {
   bool _listenerGranted = false;
   final Set<String> _allowedPackages = {};
   StreamSubscription<ServiceNotificationEvent>? _subscription;
+  Timer? _persistDebounce;
 
   /// Drives only the permission gate in [MaterialApp] home (not every toast).
   final ValueNotifier<bool> listenerGrantedNotifier = ValueNotifier(false);
@@ -30,10 +35,11 @@ class AppController extends ChangeNotifier {
   List<CapturedNotification> get notifications => notificationFeed.items;
 
   bool isPackageAllowed(String packageName) =>
-      _allowedPackages.contains(packageName);
+      _allowedPackages.contains(_normPackage(packageName));
 
   Future<void> init() async {
     await _loadPrefs();
+    await _loadStoredNotifications();
     await refreshPermission();
     listenerGrantedNotifier.value = _listenerGranted;
   }
@@ -59,16 +65,31 @@ class AppController extends ChangeNotifier {
     if (_subscription != null) return;
     _subscription = NotificationListenerService.notificationsStream.listen(
       _onEvent,
+      onError: (Object error, StackTrace stackTrace) {
+        // Plugin stream can occasionally restart; recover automatically.
+        _subscription = null;
+        if (_listenerGranted) {
+          unawaited(_ensureSubscribed());
+        }
+      },
+      onDone: () {
+        _subscription = null;
+        if (_listenerGranted) {
+          unawaited(_ensureSubscribed());
+        }
+      },
     );
   }
 
   void _onEvent(ServiceNotificationEvent event) {
     if (event.hasRemoved == true) return;
     final package = event.packageName;
-    if (package == null || package.isEmpty) return;
-    if (!_allowedPackages.contains(package)) return;
+    if (package == null || package.trim().isEmpty) return;
+    final normalizedPackage = _normPackage(package);
+    if (!_allowedPackages.contains(normalizedPackage)) return;
 
     notificationFeed.addFromEvent(event, DateTime.now());
+    _schedulePersistNotifications();
   }
 
   Future<void> _loadPrefs() async {
@@ -77,16 +98,44 @@ class AppController extends ChangeNotifier {
     if (stored != null) {
       _allowedPackages
         ..clear()
-        ..addAll(stored);
+        ..addAll(stored.map(_normPackage));
     }
     notifyListeners();
   }
 
+  Future<void> _loadStoredNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_prefsCapturedNotifications);
+    if (raw == null || raw.isEmpty) {
+      return;
+    }
+
+    final parsed = <CapturedNotification>[];
+    for (final item in raw) {
+      try {
+        final decoded = jsonDecode(item);
+        if (decoded is Map<String, dynamic>) {
+          parsed.add(CapturedNotification.fromMap(decoded));
+        } else if (decoded is Map) {
+          parsed.add(
+            CapturedNotification.fromMap(decoded.cast<String, dynamic>()),
+          );
+        }
+      } catch (_) {
+        // Skip malformed records to avoid breaking app startup.
+      }
+    }
+    if (parsed.isNotEmpty) {
+      notificationFeed.hydrate(parsed);
+    }
+  }
+
   Future<void> setPackageAllowed(String packageName, bool allowed) async {
+    final normalizedPackage = _normPackage(packageName);
     if (allowed) {
-      _allowedPackages.add(packageName);
+      _allowedPackages.add(normalizedPackage);
     } else {
-      _allowedPackages.remove(packageName);
+      _allowedPackages.remove(normalizedPackage);
     }
     await _savePrefs();
     notifyListeners();
@@ -100,6 +149,21 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  void _schedulePersistNotifications() {
+    _persistDebounce?.cancel();
+    _persistDebounce = Timer(const Duration(milliseconds: 700), () {
+      unawaited(_persistNotificationsNow());
+    });
+  }
+
+  Future<void> _persistNotificationsNow() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = notificationFeed.items
+        .map((n) => jsonEncode(n.toMap()))
+        .toList();
+    await prefs.setStringList(_prefsCapturedNotifications, encoded);
+  }
+
   Future<void> openListenerSettings() async {
     await NotificationListenerService.requestPermission();
     await refreshPermission();
@@ -107,6 +171,8 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _persistDebounce?.cancel();
+    unawaited(_persistNotificationsNow());
     final sub = _subscription;
     _subscription = null;
     if (sub != null) {

@@ -16,6 +16,13 @@ class NotificationFeedNotifier extends ChangeNotifier {
 
   List<CapturedNotification> get items => List.unmodifiable(_items);
 
+  void hydrate(List<CapturedNotification> initialItems) {
+    _items
+      ..clear()
+      ..addAll(initialItems.take(_maxItems));
+    notifyListeners();
+  }
+
   void addFromEvent(ServiceNotificationEvent event, DateTime receivedAt) {
     _items.insert(0, CapturedNotification.fromEvent(event, receivedAt));
     while (_items.length > _maxItems) {

@@ -123,6 +123,50 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
                       ),
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        leading: Icon(
+                          widget.controller.smsPermissionGranted
+                              ? Icons.sms_outlined
+                              : Icons.sms_failed_outlined,
+                          color: widget.controller.smsPermissionGranted
+                              ? scheme.secondary
+                              : scheme.error,
+                        ),
+                        title: Text(
+                          'SMS o‘qish ruxsati',
+                          style: textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            widget.controller.smsPermissionGranted
+                                ? 'Ruxsat faol. SMS bo‘limida xabarlar o‘qiladi.'
+                                : 'Ruxsat yo‘q. SMS inboxni o‘qish uchun ruxsat bering.',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FilledButton.tonalIcon(
+                            onPressed: () async {
+                              await widget.controller.requestSmsPermission();
+                            },
+                            icon: const Icon(Icons.lock_open),
+                            label: const Text('SMS ruxsatini so‘rash'),
+                          ),
+                        ),
+                      ),
                       if (granted)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),

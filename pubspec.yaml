@@ -38,6 +38,7 @@ dependencies:
   notification_listener_service: ^0.3.5
   shared_preferences: ^2.5.5
   installed_apps: ^2.1.1
+  permission_handler: ^11.4.0
 
 dev_dependencies:
   flutter_test:

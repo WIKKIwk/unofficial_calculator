@@ -4,6 +4,7 @@ import '../app_controller.dart';
 import '../widgets/notif_hub_app_bar.dart';
 import 'notifications_page.dart';
 import 'settings_page.dart';
+import 'sms_page.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.controller});
@@ -16,17 +17,19 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  static const _titles = ['Bildirishnomalar', 'SMS', 'Sozlamalar'];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: NotifHubAppBar(
-        sectionTitle: _index == 0 ? 'Bildirishnomalar' : 'Sozlamalar',
+        sectionTitle: _titles[_index],
       ),
       body: IndexedStack(
         index: _index,
         children: [
           NotificationsPage(controller: widget.controller),
+          SmsPage(controller: widget.controller),
           SettingsPage(controller: widget.controller),
         ],
       ),
@@ -38,6 +41,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.notifications_outlined),
             selectedIcon: Icon(Icons.notifications_rounded),
             label: 'Bildirishnomalar',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.sms_outlined),
+            selectedIcon: Icon(Icons.sms),
+            label: 'SMS',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

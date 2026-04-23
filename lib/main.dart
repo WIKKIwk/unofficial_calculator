@@ -56,7 +56,6 @@ class _NotifRootState extends State<NotifRoot> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'Notif Hub',
       debugShowCheckedModeBanner: false,
-      useInheritedMediaQuery: true,
       locale: DevicePreview.locale(context),
       builder: DevicePreview.appBuilder,
       theme: ThemeData(

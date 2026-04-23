@@ -2,12 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:notification_listener_service/notification_event.dart';
 import 'package:notification_listener_service/notification_listener_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models/captured_notification.dart';
+import 'models/sms_message_entry.dart';
 import 'notification_feed_notifier.dart';
+import 'sms_inbox_notifier.dart';
 
 const _prefsAllowedPackages = 'allowed_packages';
 const _prefsCapturedNotifications = 'captured_notifications_v1';
@@ -16,8 +20,10 @@ String _normPackage(String packageName) => packageName.trim().toLowerCase();
 
 class AppController extends ChangeNotifier {
   AppController();
+  static const MethodChannel _smsChannel = MethodChannel('notif_hub/sms');
 
   bool _listenerGranted = false;
+  bool _smsPermissionGranted = false;
   final Set<String> _allowedPackages = {};
   StreamSubscription<ServiceNotificationEvent>? _subscription;
   Timer? _persistDebounce;
@@ -27,12 +33,16 @@ class AppController extends ChangeNotifier {
 
   /// Drives only the notifications list UI.
   final NotificationFeedNotifier notificationFeed = NotificationFeedNotifier();
+  final ValueNotifier<bool> smsPermissionGrantedNotifier = ValueNotifier(false);
+  final SmsInboxNotifier smsInbox = SmsInboxNotifier();
 
   bool get listenerGranted => _listenerGranted;
+  bool get smsPermissionGranted => _smsPermissionGranted;
 
   Set<String> get allowedPackages => Set.unmodifiable(_allowedPackages);
 
   List<CapturedNotification> get notifications => notificationFeed.items;
+  List<SmsMessageEntry> get smsMessages => smsInbox.items;
 
   bool isPackageAllowed(String packageName) =>
       _allowedPackages.contains(_normPackage(packageName));
@@ -41,8 +51,15 @@ class AppController extends ChangeNotifier {
     await _loadPrefs();
     await _loadStoredNotifications();
     await refreshPermission();
+    await refreshSmsPermission();
+    if (_smsPermissionGranted) {
+      await loadSmsInbox();
+    }
     listenerGrantedNotifier.value = _listenerGranted;
   }
+
+  bool get _supportsSmsFeatures =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   Future<void> refreshPermission() async {
     final granted = await NotificationListenerService.isPermissionGranted();
@@ -169,6 +186,56 @@ class AppController extends ChangeNotifier {
     await refreshPermission();
   }
 
+  Future<void> refreshSmsPermission() async {
+    if (!_supportsSmsFeatures) {
+      _smsPermissionGranted = false;
+      smsPermissionGrantedNotifier.value = false;
+      notifyListeners();
+      return;
+    }
+    final status = await Permission.sms.status;
+    final granted = status.isGranted;
+    if (granted != _smsPermissionGranted) {
+      _smsPermissionGranted = granted;
+      smsPermissionGrantedNotifier.value = granted;
+      notifyListeners();
+    } else {
+      smsPermissionGrantedNotifier.value = granted;
+    }
+  }
+
+  Future<void> requestSmsPermission() async {
+    if (!_supportsSmsFeatures) {
+      return;
+    }
+    await Permission.sms.request();
+    await refreshSmsPermission();
+    if (_smsPermissionGranted) {
+      await loadSmsInbox();
+    }
+  }
+
+  Future<void> loadSmsInbox({int limit = 200}) async {
+    if (!_supportsSmsFeatures || !_smsPermissionGranted) {
+      return;
+    }
+    final raw = await _smsChannel.invokeMethod<List<dynamic>>(
+      'fetchSmsInbox',
+      <String, dynamic>{'limit': limit},
+    );
+    if (raw == null) {
+      smsInbox.replaceAll(const <SmsMessageEntry>[]);
+      return;
+    }
+    final parsed = <SmsMessageEntry>[];
+    for (final item in raw) {
+      if (item is Map) {
+        parsed.add(SmsMessageEntry.fromMap(item.cast<String, dynamic>()));
+      }
+    }
+    smsInbox.replaceAll(parsed);
+  }
+
   @override
   void dispose() {
     _persistDebounce?.cancel();
@@ -179,7 +246,9 @@ class AppController extends ChangeNotifier {
       unawaited(sub.cancel());
     }
     listenerGrantedNotifier.dispose();
+    smsPermissionGrantedNotifier.dispose();
     notificationFeed.dispose();
+    smsInbox.dispose();
     super.dispose();
   }
 }

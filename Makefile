@@ -1,6 +1,7 @@
 .PHONY: run run-android pub-get clean build-apk-arm64
 
-run: run-android
+run:
+	flutter run -d linux
 
 run-android:
 	@flutter devices | rg -qi "android" || (echo "No Android device/emulator detected. Connect a phone (USB debugging) or start an emulator."; exit 1)

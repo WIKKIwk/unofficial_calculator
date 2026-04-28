@@ -7,7 +7,7 @@ import 'package:notif_hub/models/transaction_types.dart';
 import 'package:notif_hub/services/notification_transaction_parser.dart';
 
 void main() {
-  test('parses a debit grocery transaction from notification text', () {
+  test('parses a debit grocery transaction from notification text', () async {
     const parser = NotificationTransactionParser();
     final notification = CapturedNotification(
       receivedAt: DateTime(2026, 4, 28, 10, 30),
@@ -16,17 +16,17 @@ void main() {
       content: "120 000 so'm yechildi",
     );
 
-    final record = parser.parse(notification);
+    final record = await parser.parse(notification);
 
     expect(record, isNotNull);
-    expect(record!.amount, 120000);
-    expect(record.direction, TransactionDirection.debit);
-    expect(record.category, TransactionCategory.groceries);
-    expect(record.merchantName, isNotNull);
-    expect(record.confidence, greaterThan(0.5));
+    expect(record?.amount, 120000);
+    expect(record?.direction, TransactionDirection.debit);
+    expect(record?.category, TransactionCategory.groceries);
+    expect(record?.merchantName, isNotNull);
+    expect(record?.confidence, greaterThan(0.5));
   });
 
-  test('parses a credit transaction from notification text', () {
+  test('parses a credit transaction from notification text', () async {
     const parser = NotificationTransactionParser();
     final notification = CapturedNotification(
       receivedAt: DateTime(2026, 4, 28, 11, 0),
@@ -35,11 +35,11 @@ void main() {
       content: "Hisobingizga 250 000 so'm tushdi",
     );
 
-    final record = parser.parse(notification);
+    final record = await parser.parse(notification);
 
     expect(record, isNotNull);
-    expect(record!.amount, 250000);
-    expect(record.direction, TransactionDirection.credit);
+    expect(record?.amount, 250000);
+    expect(record?.direction, TransactionDirection.credit);
   });
 
   test('builds a summary with category percentages', () {
@@ -94,4 +94,3 @@ void main() {
     expect(summary.topMerchant, 'Korzinka');
   });
 }
-

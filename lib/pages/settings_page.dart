@@ -24,15 +24,19 @@ class _SettingsPageState extends State<SettingsPage> {
   List<AppInfo>? _apps;
   String? _error;
   bool _loading = true;
+  final TextEditingController _apiKeyController = TextEditingController();
+  bool _obscureApiKey = true;
 
   @override
   void initState() {
     super.initState();
+    _apiKeyController.text = widget.controller.geminiApiKey ?? '';
     _load();
   }
 
   @override
   void dispose() {
+    _apiKeyController.dispose();
     super.dispose();
   }
 
@@ -82,6 +86,7 @@ class _SettingsPageState extends State<SettingsPage> {
       builder: (context, _) {
         final granted = widget.controller.listenerGranted;
         final visibleApps = _visibleApps();
+        final hasGemini = widget.controller.geminiConfigured;
 
         return RefreshIndicator(
           onRefresh: _load,
@@ -94,6 +99,101 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        leading: Icon(
+                          hasGemini
+                              ? Icons.psychology_alt_outlined
+                              : Icons.auto_awesome_outlined,
+                          color: hasGemini ? scheme.tertiary : scheme.primary,
+                        ),
+                        title: Text(
+                          'Gemini Flash AI',
+                          style: textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            hasGemini
+                                ? 'API key saqlandi. Transaction AI fallback faol.'
+                                : 'AI fallback uchun Gemini API key kiriting. Model: ${widget.controller.geminiModel}.',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: TextField(
+                          controller: _apiKeyController,
+                          obscureText: _obscureApiKey,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          keyboardType: TextInputType.visiblePassword,
+                          decoration: InputDecoration(
+                            labelText: 'Gemini API key',
+                            hintText: 'AIza...',
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _obscureApiKey = !_obscureApiKey;
+                                });
+                              },
+                              icon: Icon(
+                                _obscureApiKey
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            FilledButton.tonalIcon(
+                              onPressed: () async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                await widget.controller.saveGeminiApiKey(
+                                  _apiKeyController.text,
+                                );
+                                if (!mounted) return;
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Gemini key saqlandi'),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.save_outlined),
+                              label: const Text('Saqlash'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                _apiKeyController.clear();
+                                await widget.controller.clearGeminiApiKey();
+                                if (!mounted) return;
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Gemini key o‘chirildi'),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.delete_outline),
+                              label: const Text('O‘chirish'),
+                            ),
+                          ],
+                        ),
+                      ),
                       ListTile(
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,

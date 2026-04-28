@@ -2,16 +2,24 @@ import '../models/captured_notification.dart';
 import '../models/transaction_record.dart';
 import '../models/transaction_types.dart';
 import '../utils/finance_app_heuristic.dart' show matchesFinanceHeuristic;
+import 'gemini_transaction_ai_service.dart';
 import 'transaction_classifier.dart';
 
 class NotificationTransactionParser {
   const NotificationTransactionParser({
+    GeminiTransactionAiService? aiService,
     TransactionClassifier? classifier,
-  }) : _classifier = classifier ?? const TransactionClassifier();
+  })  : _aiService = aiService ?? const GeminiTransactionAiService(),
+        _classifier = classifier ?? const TransactionClassifier();
 
+  final GeminiTransactionAiService _aiService;
   final TransactionClassifier _classifier;
 
-  TransactionRecord? parse(CapturedNotification notification) {
+  Future<TransactionRecord?> parse(
+    CapturedNotification notification, {
+    String? geminiApiKey,
+    String model = GeminiTransactionAiService.defaultModel,
+  }) async {
     final title = notification.title?.trim() ?? '';
     final content = notification.content?.trim() ?? '';
     final packageName = notification.packageName.trim();
@@ -29,19 +37,35 @@ class NotificationTransactionParser {
       return null;
     }
 
-    final amount = classification.amount;
+    final apiKey = geminiApiKey?.trim();
+    final shouldAskAi = apiKey != null &&
+        apiKey.isNotEmpty &&
+        (classification.amount == null || classification.confidence < 0.74);
+
+    GeminiTransactionAnalysis? ai;
+    if (shouldAskAi) {
+      ai = await _aiService.analyze(
+        apiKey: apiKey,
+        title: title,
+        content: content,
+        packageName: packageName,
+        model: model,
+      );
+    }
+
+    final amount = ai?.amount ?? classification.amount;
     if (amount == null || amount <= 0) {
       return null;
     }
 
-    return TransactionRecord(
+    final heuristicRecord = TransactionRecord(
       id: _signature(notification, amount),
       receivedAt: notification.receivedAt,
       packageName: packageName,
       rawTitle: title,
       rawContent: content,
       amount: amount,
-      currency: classification.currency,
+      currency: ai?.currency ?? classification.currency,
       direction: classification.direction,
       category: classification.category,
       confidence: classification.confidence,
@@ -50,6 +74,12 @@ class NotificationTransactionParser {
       cardLast4: classification.cardLast4,
       hints: classification.hints,
     );
+
+    if (ai == null || !ai.isTransaction) {
+      return heuristicRecord;
+    }
+
+    return _merge(heuristicRecord, ai);
   }
 
   bool _shouldKeep(
@@ -86,6 +116,50 @@ class NotificationTransactionParser {
     return '$packageName|$bucket|$amount|$title|$content';
   }
 
+  TransactionRecord _merge(
+    TransactionRecord heuristic,
+    GeminiTransactionAnalysis ai,
+  ) {
+    final aiDirection = _directionFromName(ai.direction);
+    final aiCategory = _categoryFromName(ai.category);
+    return TransactionRecord(
+      id: heuristic.id,
+      receivedAt: heuristic.receivedAt,
+      packageName: heuristic.packageName,
+      rawTitle: heuristic.rawTitle,
+      rawContent: heuristic.rawContent,
+      amount: ai.amount ?? heuristic.amount,
+      currency: ai.currency.isEmpty ? heuristic.currency : ai.currency,
+      direction: aiDirection == TransactionDirection.unknown
+          ? heuristic.direction
+          : aiDirection,
+      category: aiCategory == TransactionCategory.other
+          ? heuristic.category
+          : aiCategory,
+      confidence: ai.confidence > heuristic.confidence
+          ? ai.confidence
+          : heuristic.confidence,
+      merchantName: ai.merchantName ?? heuristic.merchantName,
+      balanceAfter: ai.balanceAfter ?? heuristic.balanceAfter,
+      cardLast4: ai.cardLast4 ?? heuristic.cardLast4,
+      hints: heuristic.hints,
+    );
+  }
+
+  TransactionDirection _directionFromName(String value) {
+    return TransactionDirection.values.firstWhere(
+      (direction) => direction.name == value,
+      orElse: () => TransactionDirection.unknown,
+    );
+  }
+
+  TransactionCategory _categoryFromName(String value) {
+    return TransactionCategory.values.firstWhere(
+      (category) => category.name == value,
+      orElse: () => TransactionCategory.other,
+    );
+  }
+
   static const _moneyKeywords = <String>[
     'so\'m',
     'som',
@@ -107,4 +181,3 @@ class NotificationTransactionParser {
     'komissiya',
   ];
 }
-

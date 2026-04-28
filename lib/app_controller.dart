@@ -15,10 +15,12 @@ import 'models/sms_thread_entry.dart';
 import 'notification_feed_notifier.dart';
 import 'sms_inbox_notifier.dart';
 import 'sms_threads_notifier.dart';
+import 'services/gemini_transaction_ai_service.dart';
 import 'services/transaction_ledger.dart';
 
 const _prefsAllowedPackages = 'allowed_packages';
 const _prefsCapturedNotifications = 'captured_notifications_v1';
+const _prefsGeminiApiKey = 'gemini_api_key';
 
 String _normPackage(String packageName) => packageName.trim().toLowerCase();
 
@@ -28,6 +30,7 @@ class AppController extends ChangeNotifier {
 
   bool _listenerGranted = false;
   bool _smsPermissionGranted = false;
+  String? _geminiApiKey;
   final Set<String> _allowedPackages = {};
   StreamSubscription<ServiceNotificationEvent>? _subscription;
   Timer? _persistDebounce;
@@ -38,12 +41,16 @@ class AppController extends ChangeNotifier {
   /// Drives only the notifications list UI.
   final NotificationFeedNotifier notificationFeed = NotificationFeedNotifier();
   final TransactionLedger transactionLedger = TransactionLedger();
+  final ValueNotifier<bool> geminiConfiguredNotifier = ValueNotifier(false);
   final ValueNotifier<bool> smsPermissionGrantedNotifier = ValueNotifier(false);
   final SmsInboxNotifier smsInbox = SmsInboxNotifier();
   final SmsThreadsNotifier smsThreads = SmsThreadsNotifier();
 
   bool get listenerGranted => _listenerGranted;
   bool get smsPermissionGranted => _smsPermissionGranted;
+  bool get geminiConfigured => _geminiApiKey?.trim().isNotEmpty == true;
+  String? get geminiApiKey => _geminiApiKey;
+  String get geminiModel => GeminiTransactionAiService.defaultModel;
 
   Set<String> get allowedPackages => Set.unmodifiable(_allowedPackages);
 
@@ -58,6 +65,7 @@ class AppController extends ChangeNotifier {
   Future<void> init() async {
     await _loadPrefs();
     await _loadStoredNotifications();
+    await _loadGeminiPrefs();
     await transactionLedger.init();
     await refreshPermission();
     await refreshSmsPermission();
@@ -116,7 +124,13 @@ class AppController extends ChangeNotifier {
 
     final captured = CapturedNotification.fromEvent(event, DateTime.now());
     notificationFeed.addCaptured(captured);
-    unawaited(transactionLedger.ingestNotification(captured));
+    unawaited(
+      transactionLedger.ingestNotification(
+        captured,
+        geminiApiKey: _geminiApiKey,
+        model: geminiModel,
+      ),
+    );
     _schedulePersistNotifications();
   }
 
@@ -128,6 +142,13 @@ class AppController extends ChangeNotifier {
         ..clear()
         ..addAll(stored.map(_normPackage));
     }
+    notifyListeners();
+  }
+
+  Future<void> _loadGeminiPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    _geminiApiKey = prefs.getString(_prefsGeminiApiKey);
+    geminiConfiguredNotifier.value = geminiConfigured;
     notifyListeners();
   }
 
@@ -168,6 +189,22 @@ class AppController extends ChangeNotifier {
     await _savePrefs();
     notifyListeners();
   }
+
+  Future<void> saveGeminiApiKey(String apiKey) async {
+    final cleaned = apiKey.trim();
+    final prefs = await SharedPreferences.getInstance();
+    if (cleaned.isEmpty) {
+      await prefs.remove(_prefsGeminiApiKey);
+      _geminiApiKey = null;
+    } else {
+      await prefs.setString(_prefsGeminiApiKey, cleaned);
+      _geminiApiKey = cleaned;
+    }
+    geminiConfiguredNotifier.value = geminiConfigured;
+    notifyListeners();
+  }
+
+  Future<void> clearGeminiApiKey() => saveGeminiApiKey('');
 
   Future<void> _savePrefs() async {
     final prefs = await SharedPreferences.getInstance();
@@ -305,6 +342,7 @@ class AppController extends ChangeNotifier {
       unawaited(sub.cancel());
     }
     listenerGrantedNotifier.dispose();
+    geminiConfiguredNotifier.dispose();
     smsPermissionGrantedNotifier.dispose();
     notificationFeed.dispose();
     transactionLedger.dispose();

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/captured_notification.dart';
 import '../models/transaction_record.dart';
 import '../models/transaction_summary.dart';
+import 'gemini_transaction_ai_service.dart';
 import 'notification_transaction_parser.dart';
 
 const _prefsTransactions = 'transactions_v1';
@@ -63,8 +64,15 @@ class TransactionLedger extends ChangeNotifier {
 
   Future<TransactionRecord?> ingestNotification(
     CapturedNotification notification,
-  ) async {
-    final record = _parser.parse(notification);
+    {
+    String? geminiApiKey,
+    String model = GeminiTransactionAiService.defaultModel,
+  }) async {
+    final record = await _parser.parse(
+      notification,
+      geminiApiKey: geminiApiKey,
+      model: model,
+    );
     if (record == null) {
       return null;
     }
@@ -123,4 +131,3 @@ class TransactionLedger extends ChangeNotifier {
     super.dispose();
   }
 }
-

@@ -9,11 +9,13 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models/captured_notification.dart';
+import 'models/transaction_record.dart';
 import 'models/sms_message_entry.dart';
 import 'models/sms_thread_entry.dart';
 import 'notification_feed_notifier.dart';
 import 'sms_inbox_notifier.dart';
 import 'sms_threads_notifier.dart';
+import 'services/transaction_ledger.dart';
 
 const _prefsAllowedPackages = 'allowed_packages';
 const _prefsCapturedNotifications = 'captured_notifications_v1';
@@ -35,6 +37,7 @@ class AppController extends ChangeNotifier {
 
   /// Drives only the notifications list UI.
   final NotificationFeedNotifier notificationFeed = NotificationFeedNotifier();
+  final TransactionLedger transactionLedger = TransactionLedger();
   final ValueNotifier<bool> smsPermissionGrantedNotifier = ValueNotifier(false);
   final SmsInboxNotifier smsInbox = SmsInboxNotifier();
   final SmsThreadsNotifier smsThreads = SmsThreadsNotifier();
@@ -45,6 +48,7 @@ class AppController extends ChangeNotifier {
   Set<String> get allowedPackages => Set.unmodifiable(_allowedPackages);
 
   List<CapturedNotification> get notifications => notificationFeed.items;
+  List<TransactionRecord> get transactions => transactionLedger.items;
   List<SmsMessageEntry> get smsMessages => smsInbox.items;
   List<SmsThreadEntry> get smsThreadItems => smsThreads.items;
 
@@ -54,6 +58,7 @@ class AppController extends ChangeNotifier {
   Future<void> init() async {
     await _loadPrefs();
     await _loadStoredNotifications();
+    await transactionLedger.init();
     await refreshPermission();
     await refreshSmsPermission();
     if (_smsPermissionGranted) {
@@ -109,7 +114,9 @@ class AppController extends ChangeNotifier {
     final normalizedPackage = _normPackage(package);
     if (!_allowedPackages.contains(normalizedPackage)) return;
 
-    notificationFeed.addFromEvent(event, DateTime.now());
+    final captured = CapturedNotification.fromEvent(event, DateTime.now());
+    notificationFeed.addCaptured(captured);
+    unawaited(transactionLedger.ingestNotification(captured));
     _schedulePersistNotifications();
   }
 
@@ -300,6 +307,7 @@ class AppController extends ChangeNotifier {
     listenerGrantedNotifier.dispose();
     smsPermissionGrantedNotifier.dispose();
     notificationFeed.dispose();
+    transactionLedger.dispose();
     smsInbox.dispose();
     smsThreads.dispose();
     super.dispose();

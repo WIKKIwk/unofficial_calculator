@@ -23,12 +23,16 @@ class NotificationFeedNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addFromEvent(ServiceNotificationEvent event, DateTime receivedAt) {
-    _items.insert(0, CapturedNotification.fromEvent(event, receivedAt));
+  void addCaptured(CapturedNotification notification) {
+    _items.insert(0, notification);
     while (_items.length > _maxItems) {
       _items.removeLast();
     }
     _scheduleNotify();
+  }
+
+  void addFromEvent(ServiceNotificationEvent event, DateTime receivedAt) {
+    addCaptured(CapturedNotification.fromEvent(event, receivedAt));
   }
 
   void _scheduleNotify() {

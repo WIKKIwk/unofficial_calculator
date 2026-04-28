@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
 import '../widgets/notif_hub_app_bar.dart';
+import 'dashboard_page.dart';
 import 'notifications_page.dart';
 import 'settings_page.dart';
 import 'sms_page.dart';
@@ -17,7 +18,12 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
-  static const _titles = ['Bildirishnomalar', 'SMS', 'Sozlamalar'];
+  static const _titles = [
+    'Dashboard',
+    'Bildirishnomalar',
+    'SMS',
+    'Sozlamalar',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +34,7 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(
         index: _index,
         children: [
+          DashboardPage(controller: widget.controller),
           NotificationsPage(controller: widget.controller),
           SmsPage(controller: widget.controller),
           SettingsPage(controller: widget.controller),
@@ -37,6 +44,11 @@ class _AppShellState extends State<AppShell> {
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),
         destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard_rounded),
+            label: 'Dashboard',
+          ),
           NavigationDestination(
             icon: Icon(Icons.notifications_outlined),
             selectedIcon: Icon(Icons.notifications_rounded),

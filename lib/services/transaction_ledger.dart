@@ -7,17 +7,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/captured_notification.dart';
 import '../models/transaction_record.dart';
 import '../models/transaction_summary.dart';
+import '../models/transaction_types.dart';
 import 'gemini_transaction_ai_service.dart';
 import 'notification_transaction_parser.dart';
+import 'transaction_feedback_store.dart';
 
 const _prefsTransactions = 'transactions_v1';
 
 class TransactionLedger extends ChangeNotifier {
   TransactionLedger({
     NotificationTransactionParser? parser,
-  }) : _parser = parser ?? const NotificationTransactionParser();
+    TransactionFeedbackStore? feedbackStore,
+  }) : _parser = parser ??
+            NotificationTransactionParser(
+              feedbackStore: feedbackStore,
+            ),
+        _feedbackStore = feedbackStore;
 
   final NotificationTransactionParser _parser;
+  final TransactionFeedbackStore? _feedbackStore;
   final List<TransactionRecord> _items = <TransactionRecord>[];
   final Set<String> _seen = <String>{};
   Timer? _persistDebounce;
@@ -98,6 +106,57 @@ class TransactionLedger extends ChangeNotifier {
     _seen.clear();
     _schedulePersist();
     notifyListeners();
+  }
+
+  TransactionRecord? findById(String id) {
+    for (final record in _items) {
+      if (record.id == id) {
+        return record;
+      }
+    }
+    return null;
+  }
+
+  Future<void> updateCategory(
+    String id,
+    TransactionCategory category,
+  ) async {
+    final index = _items.indexWhere((record) => record.id == id);
+    if (index == -1) {
+      return;
+    }
+    final current = _items[index];
+    _items[index] = TransactionRecord(
+      id: current.id,
+      receivedAt: current.receivedAt,
+      packageName: current.packageName,
+      rawTitle: current.rawTitle,
+      rawContent: current.rawContent,
+      amount: current.amount,
+      currency: current.currency,
+      direction: current.direction,
+      category: current.category,
+      confidence: current.confidence,
+      userCategory: category,
+      merchantName: current.merchantName,
+      balanceAfter: current.balanceAfter,
+      cardLast4: current.cardLast4,
+      hints: current.hints,
+    );
+    _schedulePersist();
+    notifyListeners();
+  }
+
+  Future<void> rememberFeedback(TransactionRecord record) async {
+    final store = _feedbackStore;
+    if (store == null) {
+      return;
+    }
+    await store.rememberCategory(
+      packageName: record.packageName,
+      merchantName: record.merchantName,
+      category: record.effectiveCategory,
+    );
   }
 
   void _rebuildSeen() {

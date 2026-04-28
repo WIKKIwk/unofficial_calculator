@@ -3,17 +3,21 @@ import '../models/transaction_record.dart';
 import '../models/transaction_types.dart';
 import '../utils/finance_app_heuristic.dart' show matchesFinanceHeuristic;
 import 'gemini_transaction_ai_service.dart';
+import 'transaction_feedback_store.dart';
 import 'transaction_classifier.dart';
 
 class NotificationTransactionParser {
   const NotificationTransactionParser({
     GeminiTransactionAiService? aiService,
     TransactionClassifier? classifier,
+    TransactionFeedbackStore? feedbackStore,
   })  : _aiService = aiService ?? const GeminiTransactionAiService(),
-        _classifier = classifier ?? const TransactionClassifier();
+        _classifier = classifier ?? const TransactionClassifier(),
+        _feedbackStore = feedbackStore;
 
   final GeminiTransactionAiService _aiService;
   final TransactionClassifier _classifier;
+  final TransactionFeedbackStore? _feedbackStore;
 
   Future<TransactionRecord?> parse(
     CapturedNotification notification, {
@@ -75,11 +79,13 @@ class NotificationTransactionParser {
       hints: classification.hints,
     );
 
+    final overriddenRecord = _applyStoredFeedback(heuristicRecord);
+
     if (ai == null || !ai.isTransaction) {
-      return heuristicRecord;
+      return overriddenRecord;
     }
 
-    return _merge(heuristicRecord, ai);
+    return _merge(overriddenRecord, ai);
   }
 
   bool _shouldKeep(
@@ -157,6 +163,37 @@ class NotificationTransactionParser {
     return TransactionCategory.values.firstWhere(
       (category) => category.name == value,
       orElse: () => TransactionCategory.other,
+    );
+  }
+
+  TransactionRecord _applyStoredFeedback(TransactionRecord record) {
+    final store = _feedbackStore;
+    if (store == null) {
+      return record;
+    }
+    final category = store.resolve(
+      packageName: record.packageName,
+      merchantName: record.merchantName,
+    );
+    if (category == null || category == record.category) {
+      return record;
+    }
+    return TransactionRecord(
+      id: record.id,
+      receivedAt: record.receivedAt,
+      packageName: record.packageName,
+      rawTitle: record.rawTitle,
+      rawContent: record.rawContent,
+      amount: record.amount,
+      currency: record.currency,
+      direction: record.direction,
+      category: category,
+      confidence: (record.confidence + 0.08).clamp(0.0, 0.99).toDouble(),
+      userCategory: record.userCategory,
+      merchantName: record.merchantName,
+      balanceAfter: record.balanceAfter,
+      cardLast4: record.cardLast4,
+      hints: record.hints,
     );
   }
 

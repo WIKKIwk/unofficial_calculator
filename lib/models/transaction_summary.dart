@@ -60,8 +60,8 @@ class TransactionSummary {
     for (final record in records) {
       if (record.isDebit) {
         debitTotal += record.amount;
-        categoryTotals[record.category] =
-            (categoryTotals[record.category] ?? 0) + record.amount;
+        categoryTotals[record.effectiveCategory] =
+            (categoryTotals[record.effectiveCategory] ?? 0) + record.amount;
 
         final merchant = record.merchantName?.trim();
         if (merchant != null && merchant.isNotEmpty) {
@@ -104,4 +104,3 @@ class TransactionSummary {
     );
   }
 }
-

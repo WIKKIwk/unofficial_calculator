@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../app_controller.dart';
+import '../models/transaction_record.dart';
 import '../models/transaction_types.dart';
+import 'transaction_detail_page.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key, required this.controller});
@@ -221,6 +223,40 @@ class DashboardPage extends StatelessWidget {
                     '$topMerchant ga ${_formatMoney(summary.topMerchantAmount ?? 0)} ketgan.',
                 icon: Icons.storefront_outlined,
               ),
+            const SizedBox(height: 20),
+            Text(
+              'So‘nggi transactionlar',
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (controller.transactions.isEmpty)
+              _EmptySection(
+                scheme: scheme,
+                title: 'Transaction yo‘q',
+                body: 'Yangi bank notif kelgach, bu yerda oxirgi yozuvlar chiqadi.',
+              )
+            else
+              ...controller.transactions.take(8).map((record) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _RecentTransactionCard(
+                    scheme: scheme,
+                    record: record,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => TransactionDetailPage(
+                            controller: controller,
+                            record: record,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              }),
           ],
         );
       },
@@ -525,6 +561,81 @@ class _EmptySection extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RecentTransactionCard extends StatelessWidget {
+  const _RecentTransactionCard({
+    required this.scheme,
+    required this.record,
+    required this.onTap,
+  });
+
+  final ColorScheme scheme;
+  final TransactionRecord record;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(18),
+          border:
+              Border.all(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: record.isDebit
+                  ? scheme.errorContainer
+                  : scheme.secondaryContainer,
+              foregroundColor: scheme.onSurface,
+              child: Icon(
+                record.isDebit
+                    ? Icons.south_west_rounded
+                    : Icons.north_east_rounded,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    record.merchantName?.trim().isNotEmpty == true
+                        ? record.merchantName!.trim()
+                        : record.packageName,
+                    style: textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    record.effectiveCategory.label,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${record.amount.round()} ${record.currency}',
+              style: textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -12,6 +12,7 @@ class TransactionRecord {
     required this.direction,
     required this.category,
     required this.confidence,
+    this.userCategory,
     this.merchantName,
     this.balanceAfter,
     this.cardLast4,
@@ -28,10 +29,14 @@ class TransactionRecord {
   final TransactionDirection direction;
   final TransactionCategory category;
   final double confidence;
+  final TransactionCategory? userCategory;
   final String? merchantName;
   final double? balanceAfter;
   final String? cardLast4;
   final List<String> hints;
+
+  TransactionCategory get effectiveCategory => userCategory ?? category;
+  bool get hasUserCategory => userCategory != null;
 
   bool get isDebit =>
       direction == TransactionDirection.debit ||
@@ -53,6 +58,7 @@ class TransactionRecord {
       'currency': currency,
       'direction': direction.name,
       'category': category.name,
+      'userCategory': userCategory?.name,
       'confidence': confidence,
       'merchantName': merchantName,
       'balanceAfter': balanceAfter,
@@ -78,6 +84,7 @@ class TransactionRecord {
       currency: map['currency']?.toString() ?? 'UZS',
       direction: _directionFrom(map['direction']),
       category: _categoryFrom(map['category']),
+      userCategory: _nullableCategoryFrom(map['userCategory']),
       confidence: _asDouble(map['confidence']),
       merchantName: map['merchantName']?.toString(),
       balanceAfter: _nullableDouble(map['balanceAfter']),
@@ -124,5 +131,15 @@ class TransactionRecord {
       orElse: () => TransactionCategory.other,
     );
   }
-}
 
+  static TransactionCategory? _nullableCategoryFrom(dynamic value) {
+    final raw = value?.toString();
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+    return TransactionCategory.values.firstWhere(
+      (category) => category.name == raw,
+      orElse: () => TransactionCategory.other,
+    );
+  }
+}

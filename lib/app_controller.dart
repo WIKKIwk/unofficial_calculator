@@ -10,12 +10,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models/captured_notification.dart';
 import 'models/transaction_record.dart';
+import 'models/transaction_types.dart';
 import 'models/sms_message_entry.dart';
 import 'models/sms_thread_entry.dart';
 import 'notification_feed_notifier.dart';
 import 'sms_inbox_notifier.dart';
 import 'sms_threads_notifier.dart';
 import 'services/gemini_transaction_ai_service.dart';
+import 'services/local_transaction_notification_service.dart';
+import 'services/transaction_feedback_store.dart';
 import 'services/transaction_ledger.dart';
 
 const _prefsAllowedPackages = 'allowed_packages';
@@ -25,8 +28,14 @@ const _prefsGeminiApiKey = 'gemini_api_key';
 String _normPackage(String packageName) => packageName.trim().toLowerCase();
 
 class AppController extends ChangeNotifier {
-  AppController();
   static const MethodChannel _smsChannel = MethodChannel('notif_hub/sms');
+
+  AppController() {
+    transactionFeedbackStore = TransactionFeedbackStore();
+    transactionLedger = TransactionLedger(
+      feedbackStore: transactionFeedbackStore,
+    );
+  }
 
   bool _listenerGranted = false;
   bool _smsPermissionGranted = false;
@@ -40,7 +49,10 @@ class AppController extends ChangeNotifier {
 
   /// Drives only the notifications list UI.
   final NotificationFeedNotifier notificationFeed = NotificationFeedNotifier();
-  final TransactionLedger transactionLedger = TransactionLedger();
+  late final TransactionFeedbackStore transactionFeedbackStore;
+  late final TransactionLedger transactionLedger;
+  final LocalTransactionNotificationService _localNotificationService =
+      LocalTransactionNotificationService.instance;
   final ValueNotifier<bool> geminiConfiguredNotifier = ValueNotifier(false);
   final ValueNotifier<bool> smsPermissionGrantedNotifier = ValueNotifier(false);
   final SmsInboxNotifier smsInbox = SmsInboxNotifier();
@@ -66,7 +78,9 @@ class AppController extends ChangeNotifier {
     await _loadPrefs();
     await _loadStoredNotifications();
     await _loadGeminiPrefs();
+    await transactionFeedbackStore.init();
     await transactionLedger.init();
+    await _localNotificationService.init();
     await refreshPermission();
     await refreshSmsPermission();
     if (_smsPermissionGranted) {
@@ -124,14 +138,22 @@ class AppController extends ChangeNotifier {
 
     final captured = CapturedNotification.fromEvent(event, DateTime.now());
     notificationFeed.addCaptured(captured);
-    unawaited(
-      transactionLedger.ingestNotification(
-        captured,
-        geminiApiKey: _geminiApiKey,
-        model: geminiModel,
-      ),
-    );
+    unawaited(_handleTransactionEvent(captured));
     _schedulePersistNotifications();
+  }
+
+  Future<void> _handleTransactionEvent(CapturedNotification captured) async {
+    final record = await transactionLedger.ingestNotification(
+      captured,
+      geminiApiKey: _geminiApiKey,
+      model: geminiModel,
+    );
+    if (record == null) {
+      return;
+    }
+    if (record.isDebit) {
+      unawaited(_localNotificationService.showTransactionPrompt(record));
+    }
   }
 
   Future<void> _loadPrefs() async {
@@ -205,6 +227,27 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> clearGeminiApiKey() => saveGeminiApiKey('');
+
+  Future<void> reviewTransaction(
+    String transactionId,
+    TransactionCategory category,
+  ) async {
+    final before = transactionLedger.findById(transactionId);
+    if (before == null) {
+      return;
+    }
+    await transactionLedger.updateCategory(transactionId, category);
+    final after = transactionLedger.findById(transactionId);
+    if (after == null) {
+      return;
+    }
+    await transactionFeedbackStore.rememberCategory(
+      packageName: after.packageName,
+      merchantName: after.merchantName,
+      category: category,
+    );
+    notifyListeners();
+  }
 
   Future<void> _savePrefs() async {
     final prefs = await SharedPreferences.getInstance();
@@ -345,6 +388,7 @@ class AppController extends ChangeNotifier {
     geminiConfiguredNotifier.dispose();
     smsPermissionGrantedNotifier.dispose();
     notificationFeed.dispose();
+    transactionFeedbackStore.dispose();
     transactionLedger.dispose();
     smsInbox.dispose();
     smsThreads.dispose();
